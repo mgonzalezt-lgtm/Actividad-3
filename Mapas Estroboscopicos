@@ -1,0 +1,94 @@
+import numpy as np
+from numpy import sin, cos, pi
+import matplotlib.pyplot as plt
+
+# -----------------------------------------------------
+# Parámetros del sistema (Péndulo simple forzado)
+# Referencia: Actividad 3 / Ejercicio 3[cite: 1, 4]
+# -----------------------------------------------------
+g_l = 1.0  # Relación gravedad / longitud (g/l)[cite: 1, 4]
+ml = 1.0  # Producto masa * longitud (ml)[cite: 1, 4]
+F0 = 0.01  # Amplitud de la fuerza externa[cite: 1, 4]
+om = 2.0 / pi  # Frecuencia angular del forzamiento (2 / pi)[cite: 1, 4]
+
+# Período del forzamiento externo T = 2*pi / omega
+T = 2.0 * pi / om
+
+# -----------------------------------------------------
+# Parámetros del método numérico (Optimizados para velocidad)
+# -----------------------------------------------------
+num_periodos = 150  # Ciclos estroboscópicos a simular
+steps_per_period = 100  # Subdivisión eficiente para RK4
+dt = T / steps_per_period  # Paso de tiempo para muestreo exacto
+
+
+# -----------------------------------------------------
+# Dinámica: Péndulo simple forzado sin amortiguamiento
+# -----------------------------------------------------
+def dyn(t, y):
+    theta, v = y
+    dx = v
+    dv = - g_l * sin(theta) + (F0 / ml) * cos(om * t)
+    return np.array([dx, dv], dtype=float)
+
+
+# -----------------------------------------------------
+# Método de Runge-Kutta de cuarto orden (RK4)
+# -----------------------------------------------------
+def rk4(f, t, y, h):
+    k1 = h * f(t, y)
+    k2 = h * f(t + h / 2.0, y + k1 / 2.0)
+    k3 = h * f(t + h / 2.0, y + k2 / 2.0)
+    k4 = h * f(t + h, y + k3)
+    return y + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+
+
+# -----------------------------------------------------
+# Generación del Mapa Estroboscópico
+# -----------------------------------------------------
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Malla optimizada de condiciones iniciales (theta0, v0)
+theta_inits = np.linspace(-pi, pi, 10)
+v_inits = np.linspace(-2.0, 2.0, 10)
+
+print("Calculando trayectorias estroboscópicas optimizadas con RK4...")
+
+total_steps = num_periodos * steps_per_period
+
+for th0 in theta_inits:
+    for v0 in v_inits:
+        y = np.array([th0, v0], dtype=float)
+        t = 0.0
+
+        strobe_theta = []
+        strobe_v = []
+
+        for i in range(total_steps):
+            # Muestreo estroboscópico exacto en cada múltiplo del período T
+            if i % steps_per_period == 0:
+                # Normalizar theta al rango [-pi, pi]
+                th_wrapped = (y[0] + pi) % (2.0 * pi) - pi
+                strobe_theta.append(th_wrapped)
+                strobe_v.append(y[1])
+
+            y = rk4(dyn, t, y, dt)
+            t += dt
+
+        # Graficar los puntos estroboscópicos discretos
+        ax.scatter(strobe_theta, strobe_v, s=0.7, color='blue', alpha=0.6)
+
+# -----------------------------------------------------
+# Configuración y guardado del gráfico del espacio fase
+# -----------------------------------------------------
+ax.set_title(r"Mapa Estroboscópico del Péndulo Forzado", fontsize=16)
+ax.set_xlabel(r'$\theta$ (rad)', fontsize=18)
+ax.set_ylabel(r'$\dot{\theta}$ (rad/s)', fontsize=18)
+ax.set_xlim(-pi, pi)
+ax.set_ylim(-2.3, 2.3)
+ax.tick_params(axis='both', labelsize=14)
+ax.grid(True, linestyle='--', alpha=0.3)
+plt.tight_layout()
+ax.set_box_aspect(0.65)
+plt.savefig("Mapa_Estroboscopico_Pendulo.pdf", format="pdf", bbox_inches="tight")
+plt.show()
